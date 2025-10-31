@@ -2,7 +2,6 @@ from math import exp, log
 from matplotlib.pyplot import plot, show, xlabel, ylabel, legend
 
 class error_simulator():
-    
     def __init__(self, flight_duration, GPS_period, GPS_duration):
         self.flight_duration = flight_duration
         self.GPS_period = GPS_period
