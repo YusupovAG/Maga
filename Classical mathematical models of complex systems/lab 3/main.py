@@ -66,6 +66,7 @@ class plane():
                              self.GPS_duration)
         self.x_coords = list()
         self.y_coords = list()
+        self.dt = 1
     
     def simulate_flight(self):
         self.x_coords.clear()
@@ -74,9 +75,9 @@ class plane():
         self.y_coords.append(0)
         for t in range(1, self.flight_duration):
             self.x_coords.append(self.x_coords[-1] + (self.air_speed * cos(self.aircraft_heading) 
-                                            + self.wind_speed * cos(self.wind_direction)) * cos(self.angle_of_attack))
+                                            + self.wind_speed * cos(self.wind_direction)) * cos(self.angle_of_attack) * self.dt)
             self.y_coords.append(self.y_coords[-1] + (self.air_speed * sin(self.aircraft_heading) 
-                                            + self.wind_speed * sin(self.wind_direction)) * cos(self.angle_of_attack))
+                                            + self.wind_speed * sin(self.wind_direction)) * cos(self.angle_of_attack) * self.dt)
 
     def show_plots(self):
         t = [i for i in range(self.flight_duration)]    
@@ -93,9 +94,9 @@ class plane():
         axs[0].set_xlabel("t")
         axs[0].set_ylabel("x")
         
-        axs[1].plot(t, self.y_coords, color='blue', label="Координата y (долгата)")
-        axs[1].plot(t, y_coords_with_error, color='orange', label="Координата y (долгата) с комплексированием", linestyle='--')
-        axs[1].plot(t, y_coords_with_error_without_correction, color='red', label="Координата y (долгата) без комплексирования")
+        axs[1].plot(t, self.y_coords, color='blue', label="Координата y (долгота)")
+        axs[1].plot(t, y_coords_with_error, color='orange', label="Координата y (долгота) с комплексированием", linestyle='--')
+        axs[1].plot(t, y_coords_with_error_without_correction, color='red', label="Координата y (долгота) без комплексирования")
         axs[1].legend()
         axs[1].set_xlabel("t")
         axs[1].set_ylabel("y")
