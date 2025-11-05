@@ -20,7 +20,7 @@ class error_simulator():
         t_local = 0
         for t in range(self.flight_duration):
             if t_local >= self.GPS_period:
-                error -= error * (1 - exp(- self.k * self.GPS_duration))
+                error -= error * (1 - exp(- self.k * self.dt))
                 if t_local - self.GPS_period == self.GPS_duration:
                     t_local = 0
                 t_local += 1
