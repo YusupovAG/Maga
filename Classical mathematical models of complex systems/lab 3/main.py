@@ -81,32 +81,38 @@ class plane():
 
     def show_plots(self):
         t = [i for i in range(self.flight_duration)]    
-        fg, axs = subplots(3, 1)
+        fg, axs = subplots(2, 2)
         x_coords_with_error = [self.x_coords[i] + self.es.get_errors()[i] for i in range(self.flight_duration)]
         x_coords_with_error_without_correction = [self.x_coords[i] + self.es.get_errors_without_correction()[i] for i in range(self.flight_duration)] 
         y_coords_with_error = [self.y_coords[i] + self.es.get_errors()[i] for i in range(self.flight_duration)]
         y_coords_with_error_without_correction = [self.y_coords[i] + self.es.get_errors_without_correction()[i] for i in range(self.flight_duration)] 
         
-        axs[0].plot(t, self.x_coords, color='blue', label="Координата x (широта)")
-        axs[0].plot(t, x_coords_with_error, color='orange', label="Координата x (широта) с комплексированием",  linestyle='--')
-        axs[0].plot(t, x_coords_with_error_without_correction, color='red', label="Координата x (широта) без комплексирования")
-        axs[0].legend()
-        axs[0].set_xlabel("t")
-        axs[0].set_ylabel("x")
+        axs[0, 0].plot(t, self.x_coords, color='blue', label="Координата x (широта)")
+        axs[0, 0].plot(t, x_coords_with_error, color='orange', label="Координата x (широта) с комплексированием",  linestyle='--')
+        axs[0, 0].plot(t, x_coords_with_error_without_correction, color='red', label="Координата x (широта) без комплексирования")
+        axs[0, 0].legend()
+        axs[0, 0].set_xlabel("t")
+        axs[0, 0].set_ylabel("x")
         
-        axs[1].plot(t, self.y_coords, color='blue', label="Координата y (долгота)")
-        axs[1].plot(t, y_coords_with_error, color='orange', label="Координата y (долгота) с комплексированием", linestyle='--')
-        axs[1].plot(t, y_coords_with_error_without_correction, color='red', label="Координата y (долгота) без комплексирования")
-        axs[1].legend()
-        axs[1].set_xlabel("t")
-        axs[1].set_ylabel("y")
+        axs[1, 0].plot(t, self.y_coords, color='blue', label="Координата y (долгота)")
+        axs[1, 0].plot(t, y_coords_with_error, color='orange', label="Координата y (долгота) с комплексированием", linestyle='--')
+        axs[1, 0].plot(t, y_coords_with_error_without_correction, color='red', label="Координата y (долгота) без комплексирования")
+        axs[1, 0].legend()
+        axs[1, 0].set_xlabel("t")
+        axs[1, 0].set_ylabel("y")
 
-        axs[2].plot(self.x_coords, self.y_coords, color='blue', label="Маршрут")
-        axs[2].plot( x_coords_with_error,  y_coords_with_error, color='orange', label="Маршрут с комплексированием", linestyle='--')
-        axs[2].plot(x_coords_with_error_without_correction, y_coords_with_error_without_correction, color='red', label="Маршрут без комплексирования")
-        axs[2].legend()
-        axs[2].set_xlabel("x")
-        axs[2].set_ylabel("y")
+        axs[0, 1].plot(self.x_coords, self.y_coords, color='blue', label="Маршрут")
+        axs[0, 1].plot( x_coords_with_error,  y_coords_with_error, color='orange', label="Маршрут с комплексированием", linestyle='--')
+        axs[0, 1].plot(x_coords_with_error_without_correction, y_coords_with_error_without_correction, color='red', label="Маршрут без комплексирования")
+        axs[0, 1].legend()
+        axs[0, 1].set_xlabel("x")
+        axs[0, 1].set_ylabel("y")
+
+        axs[1, 1].plot(t, self.es.get_errors(), label="Ошибка с комплексированием")
+        axs[1, 1].plot(t, self.es.get_errors_without_correction(), label="Ошибка без комплексирования")
+        axs[1, 1].legend()
+        axs[1, 1].set_xlabel("t")
+        axs[1, 1].set_ylabel("error")
         
         show()      
 
