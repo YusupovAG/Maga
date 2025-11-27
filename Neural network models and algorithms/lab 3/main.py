@@ -99,7 +99,6 @@ class K_map():
             x, y = c.coords
             w = c.core.weights
 
-            # если весов меньше 3 — дополняем
             rgb = (w + [0, 0, 0])[:3]
             grid[x, y] = rgb
 
