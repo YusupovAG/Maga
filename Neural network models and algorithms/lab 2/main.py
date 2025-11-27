@@ -84,7 +84,7 @@ class NN():
         for i in range(1, l_count):
             B.append([uniform(0, 1) for _ in range(l_sizes[i])])
 
-        for epoch in range(1000):
+        for epoch in range(100000):
             total_error = 0
             for t in range(len(X)):
                 y = [X[t]]
