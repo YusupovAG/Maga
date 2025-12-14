@@ -1,12 +1,15 @@
 from enum import Enum
-from matplotlib.pyplot import subplots, show
-class state(Enum):
+from matplotlib.pyplot import subplots, show, pause
+from matplotlib.colors import ListedColormap
+from abc import ABC, abstractmethod
+import random
+
+class State(Enum):
     DEAD  = 0
     ALIVE = 1
 
-class cell():
-
-    def __init__(self, state = state.ALIVE, coords = (0, 0, 0)):
+class Cell():
+    def __init__(self, state = State.DEAD, coords = (0, 0)):
         self.__state = state
         self.__next_state = state
         self.__neighbours = list()
@@ -45,144 +48,163 @@ class cell():
         self.__neighbours = value
 
     def compute_next_state(self):
-        alive_count = len([c for c in self.__neighbours if c.state == state.ALIVE])
-
+        alive_count = sum(1 for c in self.__neighbours if c.state == State.ALIVE)
         self.__next_state = self.__state 
 
-        if self.__state == state.ALIVE and (alive_count > 3 or alive_count < 2):
-            self.__next_state = state.DEAD
+        if self.__state == State.ALIVE and (alive_count > 3 or alive_count < 2):
+            self.__next_state = State.DEAD
         
-        if self.__state == state.DEAD and (alive_count == 3):
-            self.__next_state = state.ALIVE
+        if self.__state == State.DEAD and (alive_count == 3):
+            self.__next_state = State.ALIVE
     
     def apply_next_state(self):
         self.__state = self.__next_state
         
-class tissue():
-
-    def __init__(self, l, w, h):
+class Tissue():
+    def __init__(self, l, h):
         self.__tissue = list()
         self.__l = l
-        self.__w = w
         self.__h = h
-        self.__start_pattern = list()
-        self.regenerate(l, w, h)
+        self.__fig, self.__ax = subplots()
+        self.__img = None
+        self.regenerate(l, h)
 
-    def regenerate(self, l, w, h):
+    def regenerate(self, l, h):
         self.__l = l
-        self.__w = w
         self.__h = h
-        self.__tissue = [[[cell() for _ in range(l)] for _ in range(w)] for _ in range(h)]
+        self.__tissue = [[Cell() for _ in range(l)] for _ in range(h)]
         for z in range(h):
-            for y in range(w):
                 for x in range(l):
-                    solo_cell = self.__tissue[z][y][x]
-                    solo_cell.coords = (x, y, z)
+                    solo_cell = self.__tissue[z][x]
+                    solo_cell.coords = (x, z)
                     self.__add_neighbours(solo_cell)
 
     def __add_neighbours(self, solo_cell):
-        x, y, z = solo_cell.coords
-        ngbrs = []
-
+        x, z = solo_cell.coords
         dz_range = (0,) if self.__h == 1 else (-1, 0, 1)
-        dy_range = (0,) if self.__w == 1 else (-1, 0, 1)
         dx_range = (0,) if self.__l == 1 else (-1, 0, 1)
 
         for dz in dz_range:
-            for dy in dy_range:
                 for dx in dx_range:
-
-                    if dx == 0 and dy == 0 and dz == 0:
+                    if dx == 0 and dz == 0:
                         continue
-
                     nx = (x + dx) % self.__l
-                    ny = (y + dy) % self.__w
                     nz = (z + dz) % self.__h
-
-                    ngbrs.append(self.__tissue[nz][ny][nx])
-
-        solo_cell.neighbours = ngbrs
+                    solo_cell.neighbours.append(self.__tissue[nz][nx])
 
     def set_start_pattern(self, pattern):
-
-        print(self.__h, self.__w, self.__l)
-        print(len(pattern), len(pattern[0]), len(pattern[0][0]))
-        if not (
-            len(pattern) != self.__h or
-            len(pattern[0]) != self.__w or
-            len(pattern[0][0]) != self.__l
-        ):
+        if len(pattern) == self.__h and len(pattern[0]) == self.__l:
             for z in range(self.__h):
-                for y in range(self.__w):
                     for x in range(self.__l):
-                        self.__tissue[z][y][x].state = pattern[z][y][x]
-                        self.__tissue[z][y][x].next_state = pattern[z][y][x]  
-        for i in self.__tissue[0][0][0].neighbours:
-            print(i.coords)
+                        self.__tissue[z][x].state = pattern[z][x]
+                        self.__tissue[z][x].next_state = pattern[z][x]
 
-    def next_state(self):
+    def compute_next_state(self):
         for z in range(self.__h):
-            for y in range(self.__w):
                 for x in range(self.__l):
-                    self.__tissue[z][y][x].compute_next_state()
-        for z in range(self.__h):
-            for y in range(self.__w):
-                for x in range(self.__l):
-                    self.__tissue[z][y][x].apply_next_state()
-
-    def show(self):
-        if self.__h > 1:
-            fig, ax = subplots(subplot_kw={"projection": "3d"})
-            for z in range(self.__h):
-                for y in range(self.__w):
-                    for x in range(self.__l):
-                        cell_state = self.__tissue[z][y][x].state
-                        color = 'green' if cell_state == state.ALIVE else 'red'
-                        ax.scatter(x, y, z, c=color, s=100, alpha=0.8)
-            
-        else:
-            fig, ax = subplots()
-            for z in range(self.__h):
-                for y in range(self.__w):
-                    for x in range(self.__l):
-                        cell_state = self.__tissue[z][y][x].state
-                        color = 'green' if cell_state == state.ALIVE else 'red'
-                        ax.scatter(x, y, c=color, s=100, alpha=0.8)
-        show()
-
+                    self.__tissue[z][x].compute_next_state()
     
+    def apply_next_state(self):
+        for z in range(self.__h):
+                for x in range(self.__l):
+                    self.__tissue[z][x].apply_next_state()
+
+    def show(self):  
+        grid = [[self.__tissue[z][x].state.value for x in range(self.__l)] for z in range(self.__h)]
+        
+        if self.__img is None:        
+            self.__img = self.__ax.imshow(
+                grid,
+                cmap=ListedColormap(['white', 'green']),
+                vmin=0,
+                vmax=1
+            )
+            self.__ax.axis('off')
+        else:
+            self.__img.set_data(grid)
+        pause(0.01)
+
+    def set_random_pattern(self, density=0.3):
+        for z in range(self.__h):
+            for x in range(self.__l):
+                if random.random() < density:
+                    self.__tissue[z][x].state = State.ALIVE
+                    self.__tissue[z][x].next_state = State.ALIVE
+    
+class SimEvent(ABC):
+    def __init__(self, tick, smltr):
+        self._tick = tick
+        self._smltr = smltr
+
+    @abstractmethod
+    def execute(self):
+        pass
+    
+    @abstractmethod
+    def log(self):
+        pass
+
+    @property
+    def tick(self):
+        return self._tick
+    
+    @tick.setter
+    def tick(self, value):
+        self._tick = value
+
+class GenerationStartEvent(SimEvent):
+    def execute(self):
+        self._smltr.start_generation()
+     
+    def log(self):
+        print(f'Generation start: tick: {self._tick}')
+
+class ComputeEvent(SimEvent):
+    def execute(self):
+        self._smltr.compute_next()
+      
+    def log(self):
+        print(f'Compute: tick: {self._tick}')
+
+class ApplyEvent(SimEvent):
+    def execute(self):
+        self._smltr.apply_next()
+
+    def log(self):
+        print(f'Apply state: tick: {self._tick}')
+
+class Simulator():
+    def __init__(self, tissue: Tissue, duration):
+        self.__tissue = tissue
+        self.__events_queue = list()
+        self.__tick = 0
+        self.__duration = duration
+  
+    def compute_next(self):
+        self.__tissue.compute_next_state()
+
+    def apply_next(self):
+        self.__tissue.apply_next_state()
+
+    def start_generation(self):
+        self.__events_queue.append(ComputeEvent(self.__tick, self))
+        self.__events_queue.append(ApplyEvent(self.__tick, self))
+        self.__tick += 1
+        self.__events_queue.append(GenerationStartEvent(self.__tick, self))
+        self.__tissue.show()
+        
+    def start_simulation(self):
+        self.__events_queue.append(GenerationStartEvent(self.__tick, self))
+        for i in range(self.__duration):
+            e = self.__events_queue.pop(0)
+            e.execute()
 
 def simulation():
-    t = tissue(8, 10, 1)
-    '''t.set_start_pattern(
-        [[[state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-        [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.ALIVE, state.ALIVE, state.ALIVE, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.ALIVE, state.ALIVE, state.ALIVE, state.ALIVE, state.ALIVE],
-         [state.DEAD, state.DEAD, state.ALIVE, state.ALIVE, state.DEAD, state.ALIVE, state.ALIVE, state.ALIVE],
-         [state.DEAD, state.DEAD, state.DEAD, state.ALIVE, state.ALIVE, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD]]]
-    )'''
-    '''t.set_start_pattern([[[state.DEAD, state.ALIVE, state.DEAD],
-                          [state.DEAD, state.ALIVE, state.DEAD],
-                          [state.DEAD, state.ALIVE, state.DEAD]]])'''
-    
-    '''t.set_start_pattern(
-        [[[state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.ALIVE, state.ALIVE, state.ALIVE, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD],
-         [state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD, state.DEAD]]]
-    )'''
-
-    for i in range(1000):
-        t.show()
-        t.next_state()
+    t = Tissue(30, 30)
+    t.set_random_pattern()
+    s = Simulator(t, 1000)
+    s.start_simulation()
+    show()
 
 def main():
     simulation()
