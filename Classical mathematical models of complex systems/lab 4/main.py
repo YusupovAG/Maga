@@ -1,138 +1,171 @@
 from tissue import Tissue
-from matplotlib.pyplot import subplots, show, pause
+from matplotlib.pyplot import subplots, show
 from matplotlib.colors import ListedColormap
 from matplotlib.widgets import Button
 from abc import ABC, abstractmethod
+from threading import Thread
+from queue import Queue
+import time
 from copy import deepcopy
 
+
+def print_queue(q):
+    print()
+    temp_q = Queue()
+    
+    while not q.empty():
+        item = q.get()
+        print(item)
+        temp_q.put(item)
+    
+    
+    while not temp_q.empty():
+        q.put(temp_q.get())
+
 class SimEvent(ABC):
-    def __init__(self, tick, smltr):
-        self._tick = tick
+    def __init__(self, smltr, obj=None):
         self._smltr = smltr
+        self._obj = obj
 
     @abstractmethod
     def execute(self):
         pass
-    
-    @abstractmethod
-    def log(self):
-        pass
 
-    @property
-    def tick(self):
-        return self._tick
-    
-    @tick.setter
-    def tick(self, value):
-        self._tick = value
 
-class GenerationStartEvent(SimEvent):
-    def execute(self):
-        self._smltr.start_generation()
-     
-    def log(self):
-        print(f'Generation start: tick: {self._tick}')
-
-class ComputeEvent(SimEvent):
-    def execute(self):
-        self._smltr.compute_next()
-      
-    def log(self):
-        print(f'Compute: tick: {self._tick}')
-
-class ApplyEvent(SimEvent):
-    def execute(self):
-        self._smltr.apply_next()
-
-    def log(self):
-        print(f'Apply state: tick: {self._tick}')
-        
 class NextEvent(SimEvent):
     def execute(self):
-        self._smltr.next()
+        #print(f"# Событие Next tick:{self._smltr.tick}")
+        if len(self._smltr.memory) - 1 == self._smltr.tick:
+            self._smltr.events_queue.put(EventB(self._smltr, self._obj))
+        else:
+            self._smltr.tick += 1
+
 
 class PrevEvent(SimEvent):
     def execute(self):
-        self._smltr.prev()
+        #print(f"# Событие Prev tick:{self._smltr.tick}")
+        if self._smltr.tick > 0:
+            self._smltr.tick -= 1
+
+
+class EventB(SimEvent):
+    def execute(self):
+        #print(f"### Событие B tick:{self._smltr.tick}")
+        for z in range(self._obj.h):
+            for x in range(self._obj.l):
+                self._smltr.events_queue.put(
+                    EventA(self._smltr, self._obj.tissue[z][x])
+                )
+        self._smltr.events_queue.put(EventC(self._smltr, self._obj))
+
+
+class EventA(SimEvent):
+    def execute(self):
+        #print(f"##### Событие A")
+        self._obj.compute_next_state()
+        self._smltr.targeted_x, self._smltr.targeted_z = self._obj.coords
+
+
+class EventC(SimEvent):
+    def execute(self):
+        #print(f"### Событие C tick:{self._smltr.tick}")
+        self._obj.apply_next_state()
+        self._smltr.memory.append(self._obj.pattern)
+        self._smltr.tick += 1
+        if self._smltr.play:
+            self._smltr.events_queue.put(EventB(self._smltr, self._obj))
+
+
+class PlayEvent(SimEvent):
+    def execute(self):
+        if not self._smltr.play:
+            self._smltr.events_queue.put(EventB(self._smltr, self._obj))
+        self._smltr.play = not self._smltr.play
 
 
 class Simulator():
     def __init__(self, tissue: Tissue):
-        self.__tissue = tissue
-        self.__events_queue = list()
-        self.__tick = 0
-        self.__fig, self.__ax = subplots(1, 3)
-        self.__next_button = Button(self.__ax[2], '> ({1})')
-        self.__prev_button = Button(self.__ax[0], '< ({-1})')
+        self.tissue = tissue
+        self.events_queue = Queue()
+        self.tick = 0
+        self.memory = [tissue.pattern]
+        self.play = False
+        self.__img = None
+
+        self.targeted_x = 0
+        self.targeted_z = 0
+        _, self.__ax = subplots(1, 4)
+        self.__ax[1].set_title(f'Tick: {self.tick}')
+
+        self.__next_button = Button(self.__ax[2], '> (1)')
+        self.__prev_button = Button(self.__ax[0], '< (-1)')
+        self.__play_button = Button(self.__ax[3], '|>')
+
         self.__next_button.on_clicked(self.__next)
         self.__prev_button.on_clicked(self.__prev)
-        
-        self.__img = None
-        self.__memory = [deepcopy(tissue.pattern)]
-          
-    def compute_next(self):
-        self.__tissue.compute_next_state()
+        self.__play_button.on_clicked(self.__play)
 
-    def apply_next(self):
-        self.__tissue.apply_next_state()
+        self.__ax[1].tick_params(
+            top=False, bottom=False, left=False, right=False,
+            labelleft=False, labelbottom=False
+        )
 
-    def start_generation(self):
-        self.__events_queue.append(ComputeEvent(self.__tick, self))
-        self.__events_queue.append(ApplyEvent(self.__tick, self))
-        self.__tick += 1
-        self.__events_queue.append(GenerationStartEvent(self.__tick, self))
-        self.show()
-        
-    def start_simulation(self, duration):
-        self.__events_queue.append(GenerationStartEvent(self.__tick, self))
-        for i in range(duration):
-            e = self.__events_queue.pop(0)
+        self.__img = self.__ax[1].imshow(
+            self.memory[self.tick],
+            cmap=ListedColormap(['white', 'green', 'gray', '#006400']),
+            vmin=0,
+            vmax=3,
+            interpolation='nearest'
+        )
+
+    def update_queue(self):
+        while True:
+            e = self.events_queue.get()
             e.execute()
+            self.update_plot()
+            print_queue(self.events_queue)
+            time.sleep(0.1)
 
-    def show(self): 
-        grid = [[self.__memory[self.__tick][z][x].value for x in range(self.__tissue.l)] for z in range(self.__tissue.h)]
-        print(f"show {self.__tick}")
-        if self.__img is None:        
-            self.__img = self.__ax[1].imshow(
-                grid,
-                cmap=ListedColormap(['white', 'green']),
-                vmin=0,
-                vmax=1
-            )
-            self.__ax[1].axis('off')
-        else:
-            self.__img.set_data(grid)
-        pause(0.01)
+    def start_simulation(self, duration):
+        self.t = Thread(target=self.update_queue, daemon=True)
+        self.t.start()
+        
+        show()
+
+    def update_plot(self):
+        self.__next_button.label.set_text(f'> ({self.tick + 1})')
+        self.__prev_button.label.set_text(f'< ({self.tick - 1})')
+        self.__play_button.label.set_text('||' if self.play else '|>')
+        self.__next_button.set_active(False if self.play else True)
+        self.__prev_button.set_active(False if self.play else True)
+        
+        p = deepcopy(self.memory[self.tick])
+        p[self.targeted_z][self.targeted_x] += 2
+        
+        if 0 <= self.tick < len(self.memory):
+            self.__img.set_data(p)
+
+        self.__ax[1].set_title(f'Tick: {self.tick}')
+        self.__img.figure.canvas.draw_idle()
 
     def __next(self, event):
-        if len(self.__memory) - 1 == self.__tick:
-            ComputeEvent(self.__tick, self).execute()
-            ApplyEvent(self.__tick, self).execute()
-            self.__memory.append(deepcopy(self.__tissue.pattern))
-          
-        self.__tick += 1
-        self.__next_button.label.set_text(f'> ({self.__tick + 1})')
-        self.__prev_button.label.set_text(f'< ({self.__tick - 1})')
-        print(len(self.__memory))
-        self.show()
-    
+        self.events_queue.put(NextEvent(self, self.tissue))
+
     def __prev(self, event):
-        if self.__tick > 0:
-            self.__tick -= 1
-            self.__next_button.label.set_text(f'> ({self.__tick + 1})')
-            self.__prev_button.label.set_text(f'< ({self.__tick - 1})')
-            print(len(self.__memory))
-            self.show()
+        self.events_queue.put(PrevEvent(self, self.tissue))
+
+    def __play(self, event):
+        self.events_queue.put(PlayEvent(self, self.tissue))
 
 
 def simulation():
-    t = Tissue(30, 30)
+    t = Tissue(5, 5)
     s = Simulator(t)
-    s.show()
-    show()
-    
+    s.start_simulation(30)
+
 
 def main():
     simulation()
+
 
 main()

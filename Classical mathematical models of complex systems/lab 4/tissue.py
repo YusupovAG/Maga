@@ -1,5 +1,6 @@
 from random import random
 from enum import Enum
+from copy import deepcopy
 
 class State(Enum):
     DEAD  = 0
@@ -60,6 +61,7 @@ class Cell():
 class Tissue():
     def __init__(self, l, h):
         self.__tissue = list()
+        self.__current_cell = None
         self.__l = l
         self.__h = h
         self.__pattern = self.generate_random_pattern()
@@ -70,11 +72,11 @@ class Tissue():
         self.__h = h
         self.__tissue = [[Cell() for _ in range(l)] for _ in range(h)]
         for z in range(h):
-                for x in range(l):
-                    solo_cell = self.__tissue[z][x]
-                    solo_cell.coords = (x, z)
-                    solo_cell.state = self.pattern[z][x]
-                    self.__add_neighbours(solo_cell)
+            for x in range(l):
+                solo_cell = self.__tissue[z][x]
+                solo_cell.coords = (x, z)
+                solo_cell.state = State(self.__pattern[z][x])
+                self.__add_neighbours(solo_cell)
                     
     @property
     def tissue(self):
@@ -114,7 +116,7 @@ class Tissue():
                     solo_cell.neighbours.append(self.__tissue[nz][nx])
     @property
     def pattern(self):
-        return self.__pattern
+        return deepcopy(self.__pattern)
     
     @pattern.setter
     def pattern(self, pattern):
@@ -122,18 +124,22 @@ class Tissue():
             self.__pattern = pattern
             for z in range(self.__h):
                 for x in range(self.__l):
-                    self.__tissue[z][x].state = pattern[z][x] 
+                    self.__tissue[z][x].state = State(pattern[z][x]) 
 
     def compute_next_state(self):
         for z in range(self.__h):
             for x in range(self.__l):
                 self.__tissue[z][x].compute_next_state()
 
+    @property
+    def cell(self, x, y):
+        return self.__tissue[x][y]
+        
     def apply_next_state(self):
         for z in range(self.__h):
             for x in range(self.__l):
                 self.__tissue[z][x].apply_next_state()
-                self.__pattern[z][x] = self.__tissue[z][x].state
+                self.__pattern[z][x] = self.__tissue[z][x].state.value
 
     def generate_random_pattern(self, density=0.3):
         new_pattern = list()
@@ -141,7 +147,7 @@ class Tissue():
             new_pattern.append(list())
             for _ in range(self.__l):
                 if random() < density:
-                    new_pattern[z].append(State.ALIVE)
+                    new_pattern[z].append(State.ALIVE.value)
                 else:
-                    new_pattern[z].append(State.DEAD)
+                    new_pattern[z].append(State.DEAD.value)
         return new_pattern        
