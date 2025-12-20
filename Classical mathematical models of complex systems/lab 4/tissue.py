@@ -61,7 +61,6 @@ class Cell():
 class Tissue():
     def __init__(self, l, h):
         self.__tissue = list()
-        self.__current_cell = None
         self.__l = l
         self.__h = h
         self.__pattern = self.generate_random_pattern()
